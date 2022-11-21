@@ -179,9 +179,7 @@ int auth(int new_fd)
     }
 
     buf[numbytes] = '\0';
-    printf("Received '%s'\n", buf);
     encryption(buf);
-    printf("After encryption '%s'\n", buf);
 
     return varifyFromServerC(buf);
 }

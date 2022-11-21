@@ -23,7 +23,6 @@ using namespace std;
 
 map<string, string> db;
 int sockfd;
-struct addrinfo *p, *servinfo;
 
 void readFile(string fileName)
 {
@@ -44,6 +43,8 @@ void readFile(string fileName)
         string password;
         getline(ss, username, ',');
         getline(ss, password);
+        password.erase(remove(password.begin(), password.end(), '\n'), password.cend());
+        password.erase(remove(password.begin(), password.end(), '\r'), password.cend());
         db.insert(make_pair(username, password));
     }
 }
@@ -52,6 +53,7 @@ void creatUDPConnection()
 {
     struct addrinfo hints;
     int rv;
+    struct addrinfo *p, *servinfo;
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET6; // set to AF_INET to use IPv4
@@ -89,6 +91,8 @@ void creatUDPConnection()
         fprintf(stderr, "listener: failed to bind socket\n");
         return;
     }
+
+    freeaddrinfo(servinfo);
 }
 
 void checkMessage()
@@ -98,14 +102,18 @@ void checkMessage()
     struct sockaddr_storage their_addr;
     socklen_t addr_len = sizeof their_addr;
 
+    memset(buf, 0, sizeof buf);
     if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN - 1, 0, (struct sockaddr *)&their_addr, &addr_len)) == -1)
     {
         perror("recvfrom");
         exit(1);
     }
     cout << "The ServerC received an authentication request from the Main Server." << endl;
-
+ 
     string msg(buf, strlen(buf));
+
+    cout << "Recieved message is '" << msg << "'" << endl;
+
     stringstream ss(msg);
     string username;
     string password;
@@ -114,6 +122,7 @@ void checkMessage()
 
     char res[1];
     res[0] = '0';
+
     if (!db.count(username))
     {
         res[0] = '1';

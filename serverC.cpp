@@ -15,7 +15,6 @@ int main(void)
         checkMessage();
     }
 
-    freeaddrinfo(servinfo);
     close(sockfd);
     return 0;
 }

@@ -80,12 +80,12 @@ void auth(int sockfd)
         string password;
         cin >> password;
 
-        string data = "0" + username + "," + password;
+        string data = username + "," + password;
         const char *msg = data.c_str();
 
         char buf[MAXDATASIZE];
         int numbytes;
-
+        cout << "data size: " << data.size() << endl;
         if (send(sockfd, msg, data.size(), 0) != data.size())
         {
             perror("send");

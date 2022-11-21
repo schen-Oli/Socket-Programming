@@ -21,40 +21,32 @@
 #define MAXDATASIZE 100
 using namespace std;
 
-void encryption(char *buf){
-    for(int i = 0; i < strlen(buf); i++){
-        char tmp = buf[i];
-        if(isalpha(tmp)){
-            int init;
-            if(isupper(tmp)){
-                init = 'A';
-            }else{
-                init = 'a';
-            }
+map<string, string> db;
+void readFile(string fileName)
+{
+    ifstream file;
+    file.open(fileName);
 
-            buf[i] = (buf[i] - init + 4) % 26 + init;
-        }else if(isdigit(tmp)){
-            buf[i] = buf[i] - '0' + 4 >= 10 ? buf[i] + 4 - 10 : buf[i] + 4; 
-        }
+    if (!file.is_open())
+    {
+        perror("failed to open credential file");
+        exit(-1);
+    }
+
+    string line;
+    while (getline(file, line))
+    {
+        stringstream ss(line);
+        string username;
+        string password;
+        getline(ss, username, ',');
+        getline(ss, password);
+        db.insert(make_pair(username, password));
     }
 }
 
 int main()
 {
-    char buf[MAXDATASIZE] = "Welcome to EE450!";
-    printf("%s\n", buf);
-    encryp(buf);
-    printf("%s\n", buf);
-
-    char buf2[MAXDATASIZE] = "199@$";
-    printf("%s\n", buf2);
-    encryp(buf2);
-    printf("%s\n", buf2);
-
-    char buf3[MAXDATASIZE] = "0.27#&";
-    printf("%s\n", buf3);
-    encryp(buf3);
-    printf("%s\n", buf3);
-
-    return 0;
+    readFile("cred.txt");
+    for
 }
