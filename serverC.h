@@ -18,6 +18,7 @@
 #define PORT "21682"
 #define IP "127.0.0.1"
 #define MAXBUFLEN 100
+
 #define PASS '0'
 #define FAIL_NO_USER '1'
 #define FAIL_PASS_NO_MATCH '2'
@@ -34,7 +35,7 @@ void readFile(string fileName)
 
     if (!file.is_open())
     {
-        perror("failed to open credential file");
+        perror("serverC: failed to open credential file");
         exit(-1);
     }
 
@@ -74,14 +75,14 @@ void creatUDPConnection()
         if ((sockfd = socket(p->ai_family, p->ai_socktype,
                              p->ai_protocol)) == -1)
         {
-            perror("listener: socket");
+            perror("serverC: socket");
             continue;
         }
 
         if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
         {
             close(sockfd);
-            perror("listener: bind");
+            perror("serverC: bind");
             continue;
         }
 
@@ -90,7 +91,7 @@ void creatUDPConnection()
 
     if (p == NULL)
     {
-        fprintf(stderr, "listener: failed to bind socket\n");
+        fprintf(stderr, "serverC: failed to bind socket\n");
         return;
     }
 
@@ -107,7 +108,7 @@ void checkMessage()
     memset(buf, 0, sizeof buf);
     if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN - 1, 0, (struct sockaddr *)&their_addr, &addr_len)) == -1)
     {
-        perror("recvfrom");
+        perror("serverC: recvfrom");
         exit(1);
     }
     cout << "The ServerC received an authentication request from the Main Server." << endl;
@@ -119,11 +120,6 @@ void checkMessage()
     string password;
     getline(ss, username, ',');
     getline(ss, password);
-
-    cout << "username is "
-         << "'" << username << "'" << endl;
-    cout << "password is "
-         << "'" << password << "'" << endl;
 
     char res[1];
     memset(res, 0, sizeof res);
@@ -139,7 +135,7 @@ void checkMessage()
 
     if ((numbytes = sendto(sockfd, res, 1, 0, (struct sockaddr *)&their_addr, addr_len)) == -1)
     {
-        perror("talker: sendto");
+        perror("serverC: sendto");
         exit(1);
     }
     cout << "The ServerC finished sending the response to the Main Server." << endl;
