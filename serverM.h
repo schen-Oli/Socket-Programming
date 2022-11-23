@@ -16,8 +16,12 @@
 #include <iostream>
 
 #define IP "127.0.0.1"
-#define PORT_M "25682" // PORT number of serverM
-#define PORT_C "21682" // PORT numebr of serverC
+
+#define PORT_M "25682"
+#define PORT_C "21682"
+#define PORT_CS "22682"
+#define PORT_EE "23682"
+
 #define MAXDATASIZE 100
 #define BACKLOG 10
 
@@ -184,6 +188,152 @@ int auth(int new_fd)
     return varifyFromServerC(buf);
 }
 
+string getInfoFromServer(const char* port, string req)
+{
+    int sockfd;
+    struct addrinfo hints, *servinfo, *p;
+    int numbytes;
+
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+
+    int rv;
+    if ((rv = getaddrinfo(IP, port, &hints, &servinfo)) != 0)
+    {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+        return NULL;
+    }
+
+    for (p = servinfo; p != NULL; p = p->ai_next)
+    {
+        if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
+        {
+            perror("serverM: failed to create socket");
+            continue;
+        }
+        break;
+    }
+
+    if (p == NULL)
+    {
+        fprintf(stderr, "talker: failed to create socket\n");
+        return NULL;
+    }
+
+    if ((numbytes = sendto(sockfd, req.c_str(), req.length(), 0, p->ai_addr, p->ai_addrlen)) == -1)
+    {
+        perror("talker: sendto");
+        exit(1);
+    }
+
+    char res[MAXDATASIZE];
+    struct sockaddr_storage their_addr;
+    socklen_t addr_len = sizeof their_addr;
+    if ((numbytes = recvfrom(sockfd, res, MAXDATASIZE, 0, (struct sockaddr *)&their_addr, &addr_len)) == -1)
+    {
+        perror("recvfrom");
+        exit(1);
+    }
+
+    freeaddrinfo(servinfo);
+
+    close(sockfd);
+    return string(res, strlen(res));
+}
+
+int processOneCourse(char *buf, int new_fd)
+{
+    cout << "processing one requst " << string(buf, strlen(buf)) << endl;
+
+    int index = 1;
+    string department;
+    string courseCode;
+    string category;
+
+    if (isalpha(buf[index]))
+    {
+        while (index < strlen(buf) && isalpha(buf[index]))
+        {
+            department += buf[index];
+            index++;
+        }
+    }
+    else
+    {
+        cout << "char in index " << index << " is " << buf[index];
+        perror("wrong request format");
+        return -1;
+    }
+
+    cout << "department is " << department << endl;
+
+    if (isdigit(buf[index]))
+    {
+        while (index < strlen(buf) && isdigit(buf[index]))
+        {
+            courseCode += buf[index];
+            index++;
+        }
+    }
+    else
+    {
+        cout << "char in index " << index << " is " << buf[index];
+        perror("wrong request format");
+        return -1;
+    }
+
+    cout << "courseCode is " << courseCode << endl;
+
+    if (buf[index] == ',')
+    {
+        category += buf[index + 1];
+    }
+    else
+    {
+        cout << "char in index " << index << " is " << buf[index];
+        perror("wrong request format");
+        return -1;
+    }
+
+    string req = courseCode + "," + category;
+    cout << req << endl;
+    int sr;
+    string res; 
+    if(department == "EE"){
+        res = getInfoFromServer(PORT_EE, req);  
+    }else if(department == "CS"){
+        res = getInfoFromServer(PORT_CS, req);
+    }else{
+        res = "Course code not exist";
+    }
+    sr = send(new_fd, res.c_str(), res.length(), 0);
+    return sr;
+}
+
+void processRequest(int new_fd)
+{
+    int numbytes;
+    char buf[MAXDATASIZE];
+    memset(buf, 0, sizeof buf);
+    if ((numbytes = recv(new_fd, buf, MAXDATASIZE - 1, 0)) == -1)
+    {
+        perror("recv");
+        close(new_fd);
+        exit(1);
+    }
+
+    buf[numbytes] = '\0';
+    cout << "processing request" << endl;
+    cout << "buf[0] is " << buf[0] << endl;
+    if (buf[0] == '1')
+    {
+        processOneCourse(buf, new_fd);
+    }else{
+
+    }
+}
+
 bool acceptConnections(int sockfd)
 {
     struct sockaddr_storage their_addr;
@@ -235,7 +385,9 @@ bool acceptConnections(int sockfd)
             }
         }
 
-        // request
+        // get request
+        cout << "The user has passed the authentification" << endl;
+        processRequest(new_fd);
         close(new_fd);
         exit(0);
     }

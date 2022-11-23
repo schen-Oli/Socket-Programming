@@ -14,12 +14,27 @@
 #include <sstream>
 #include <map>
 #include <iostream>
+#include <ctype.h>
 
 #define IP "127.0.0.1"
 #define PORT "25682" // port number of serverM
 #define MAXDATASIZE 100
 
+// EE / CS / OTHER
+#define EE '1'
+#define CS '2'
+#define OTHER '3'
+
+// Credit / Professor / Days / CourseName
+#define CREDIT '1'
+#define PROFESSOR '2'
+#define DAYS '3'
+#define COURSE_NAME '4'
+#define FULL '5'
+
 using namespace std;
+
+string username;
 
 int getSolidSocketFd()
 {
@@ -74,7 +89,6 @@ void auth(int sockfd)
         cnt--;
 
         cout << "Please enter the username: ";
-        string username;
         cin >> username;
         cout << "Please enter the password: ";
         string password;
@@ -130,4 +144,157 @@ void auth(int sockfd)
     close(sockfd);
     cout << "Authentication Failed for 3 attempts. Client will shut down." << endl;
     exit(1);
+}
+
+// char getDepartment(string dep)
+// {
+//     if (dep == "EE")
+//     {
+//         return EE;
+//     }
+//     else if (dep == "CS")
+//     {
+//         return CS;
+//     }
+//     return OTHER;
+// }
+
+char getCat(string category)
+{
+    if (category == "Credit")
+    {
+        return CREDIT;
+    }
+    else if (category == "Professor")
+    {
+        return PROFESSOR;
+    }
+    else if (category == "Days")
+    {
+        return DAYS;
+    }
+    return COURSE_NAME;
+}
+
+void requestOneCourse(string req, string code, int sockfd)
+{
+    cout << "Please enter the category (Credit / Professor / Days / CourseName): ";
+    string category;
+    cin >> category;
+
+    string dep;
+    string courseCode;
+
+    int index = 0;
+
+    req += code + ",";
+    req += getCat(category);
+
+    const char *msg = req.c_str();
+
+    cout << "sending '" << req << "'" << endl;
+
+    int numbytes;
+    if (send(sockfd, msg, req.size(), 0) != req.size())
+    {
+        perror("send");
+        exit(1);
+    }
+
+    cout << username << " sent a request to the main server." << endl;
+
+    char buf[MAXDATASIZE];
+    memset(buf, 0, sizeof buf);
+    if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) == -1)
+    {
+        perror("recv");
+        exit(1);
+    }
+
+    string resposne = string(buf, strlen(buf));
+    
+    cout << "The " << category << " of " << code << " is " << buf << endl;  
+}
+
+void requestMultiCourse(string req, string code, int sockfd)
+{
+    int index = 0;
+    while (index < code.length())
+    {
+        if (code[index] == ' ')
+        {
+            req.append(" ");
+            while (index < code.length() && code[index] == ' ')
+            {
+                index++;
+            }
+        }
+
+        if (isalpha(code[index]))
+        {
+            string dep;
+            while (index < code.length() && isalpha(code[index]))
+            {
+                dep += code[index];
+                index++;
+            }
+            req += dep;
+        }
+
+        if (isdigit(code[index]))
+        {
+            req += code[index];
+            index++;
+        }
+    }
+
+    const char *msg = req.c_str();
+
+    int numbytes;
+    if (send(sockfd, msg, req.size(), 0) != req.size())
+    {
+        perror("send");
+        exit(1);
+    }
+
+    cout << username << " sent a request to the main server." << endl;
+}
+
+string trim(string input)
+{
+    int start = 0;
+    int end = input.length() - 1;
+    while (input[start] == ' ')
+    {
+        start++;
+    }
+    while (input[end] == ' ')
+    {
+        end--;
+    }
+    return input.substr(start, end - start + 1);
+}
+
+void requestCourse(int sockfd)
+{
+    cout << "Please enter the course code to query: ";
+    string code;
+    getline(std::cin >> std::ws, code);
+
+    code = trim(code);
+
+    string request;
+
+    if (code.find_first_of(' ', 0) == string::npos)
+    {
+        // only request for one course
+        request.append("1");
+        requestOneCourse(request, code, sockfd);
+    }
+    else
+    {
+        // request for multiple courses
+        request.append("2");
+        requestMultiCourse(request, code, sockfd);
+    }
 }

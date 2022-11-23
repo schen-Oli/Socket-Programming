@@ -18,6 +18,9 @@
 #define PORT "21682"
 #define IP "127.0.0.1"
 #define MAXBUFLEN 100
+#define PASS '0'
+#define FAIL_NO_USER '1'
+#define FAIL_PASS_NO_MATCH '2'
 
 using namespace std;
 
@@ -56,11 +59,10 @@ void creatUDPConnection()
     struct addrinfo *p, *servinfo;
 
     memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_INET6; // set to AF_INET to use IPv4
+    hints.ai_family = AF_INET; 
     hints.ai_socktype = SOCK_DGRAM;
-    hints.ai_flags = AI_PASSIVE; // use my IP
 
-    if ((rv = getaddrinfo(NULL, PORT, &hints, &servinfo)) != 0)
+    if ((rv = getaddrinfo(IP, PORT, &hints, &servinfo)) != 0)
     {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
         return;
@@ -109,10 +111,8 @@ void checkMessage()
         exit(1);
     }
     cout << "The ServerC received an authentication request from the Main Server." << endl;
- 
-    string msg(buf, strlen(buf));
 
-    cout << "Recieved message is '" << msg << "'" << endl;
+    string msg(buf, strlen(buf));
 
     stringstream ss(msg);
     string username;
@@ -120,22 +120,27 @@ void checkMessage()
     getline(ss, username, ',');
     getline(ss, password);
 
-    char res[1];
-    res[0] = '0';
+    cout << "username is "
+         << "'" << username << "'" << endl;
+    cout << "password is "
+         << "'" << password << "'" << endl;
 
+    char res[1];
+    memset(res, 0, sizeof res);
+    res[0] = PASS;
     if (!db.count(username))
     {
-        res[0] = '1';
-    }else if (db[username] != password)
-    {
-        res[0] = '2';
+        res[0] = FAIL_NO_USER;
     }
-    
+    else if (db[username] != password)
+    {
+        res[0] = FAIL_PASS_NO_MATCH;
+    }
+
     if ((numbytes = sendto(sockfd, res, 1, 0, (struct sockaddr *)&their_addr, addr_len)) == -1)
     {
         perror("talker: sendto");
         exit(1);
     }
     cout << "The ServerC finished sending the response to the Main Server." << endl;
-
 }

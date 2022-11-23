@@ -11,6 +11,11 @@ int main(void)
     //authentification
     auth(sockfd);
 
+    //send request
+    while(1){
+        requestCourse(sockfd);
+    }
+    
 close(sockfd);
     return 0;
 }
