@@ -24,18 +24,39 @@
 using namespace std;
 
 void trim(){
-    string test = " EE450 HARYSD ";
-    int start = 0;
-    int end = test.length() - 1;
-    while(test[start] == ' '){
-        start++;
-    }
-    while(test[end] == ' '){
-        end--;
-    }
-    test= test.substr(start, end);
-    cout << "'" << test << "'" << end;
+    string req;
+    string code = "EE450 CS451  EE454 DS123";
+    int index = 0;
+    while (index < code.length())
+    {
+        if (code[index] == ' ')
+        {
+            req.append(" ");
+            while (index < code.length() && code[index] == ' ')
+            {
+                index++;
+            }
+        }
 
+        if (isalpha(code[index]))
+        {
+            string dep;
+            while (index < code.length() && isalpha(code[index]))
+            {
+                dep += code[index];
+                index++;
+            }
+            req += dep;
+        }
+
+        if (isdigit(code[index]))
+        {
+            req += code[index];
+            index++;
+        }
+    }
+    cout << "'" << code << "'" << endl;
+    cout << "'" << req << "'" << endl; 
 }
 
 int main()

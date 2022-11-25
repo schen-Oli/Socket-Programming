@@ -56,7 +56,7 @@ int getSolidSocketFd()
     {
         if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
         {
-            perror("server: socket");
+            perror("client: socket");
             continue;
         }
 
@@ -94,13 +94,12 @@ void auth(int sockfd)
         string password;
         cin >> password;
 
-        string data = username + "," + password;
-        const char *msg = data.c_str();
+        string data = "0" + username + "," + password;
 
         char buf[MAXDATASIZE];
         int numbytes;
-        cout << "data size: " << data.size() << endl;
-        if (send(sockfd, msg, data.size(), 0) != data.size())
+
+        if (send(sockfd, data.c_str(), data.size(), 0) != data.size())
         {
             perror("send");
             exit(1);
@@ -141,23 +140,16 @@ void auth(int sockfd)
         }
     }
 
+    if (send(sockfd, "0", 1, 0) == -1)
+    {
+        perror("Client");
+        exit(1);
+    }
+
     close(sockfd);
     cout << "Authentication Failed for 3 attempts. Client will shut down." << endl;
     exit(1);
 }
-
-// char getDepartment(string dep)
-// {
-//     if (dep == "EE")
-//     {
-//         return EE;
-//     }
-//     else if (dep == "CS")
-//     {
-//         return CS;
-//     }
-//     return OTHER;
-// }
 
 char getCat(string category)
 {
@@ -190,12 +182,8 @@ void requestOneCourse(string req, string code, int sockfd)
     req += code + ",";
     req += getCat(category);
 
-    const char *msg = req.c_str();
-
-    cout << "sending '" << req << "'" << endl;
-
     int numbytes;
-    if (send(sockfd, msg, req.size(), 0) != req.size())
+    if (send(sockfd, req.c_str(), req.size(), 0) != req.size())
     {
         perror("send");
         exit(1);
@@ -211,13 +199,14 @@ void requestOneCourse(string req, string code, int sockfd)
         exit(1);
     }
 
+    buf[numbytes] = '\0';
     string resposne = string(buf, strlen(buf));
-    
-    cout << "The " << category << " of " << code << " is " << buf << endl;  
+    printf("The %s of %s is %s.\n", category.c_str(), code.c_str(), buf);
 }
 
 void requestMultiCourse(string req, string code, int sockfd)
 {
+    // form request
     int index = 0;
     while (index < code.length())
     {
@@ -257,7 +246,33 @@ void requestMultiCourse(string req, string code, int sockfd)
         exit(1);
     }
 
-    cout << username << " sent a request to the main server." << endl;
+    cout << username << " sent a request with multiple CourseCode to the main server." << endl;
+    bool printed = false;
+
+    while (1)
+    {
+        char buf[MAXDATASIZE];
+        memset(buf, 0, sizeof buf);
+        if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) == -1)
+        {
+            perror("recv");
+            exit(1);
+        }
+
+        if (buf[0] == '0')
+        {
+            break;
+        }
+
+        if (!printed)
+        {
+            cout << "The client received the response from the Main server using TCP over port " << PORT << "." << endl;
+            printed = true;
+        }
+        buf[numbytes] = '\0';
+        string resposne = string(buf + 1, strlen(buf) - 1);
+        cout << resposne << endl;
+    }
 }
 
 string trim(string input)
@@ -297,4 +312,6 @@ void requestCourse(int sockfd)
         request.append("2");
         requestMultiCourse(request, code, sockfd);
     }
+
+    cout << "\n-----Start a new request-----" << endl;
 }

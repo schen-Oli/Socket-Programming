@@ -14,7 +14,7 @@
 #include <sstream>
 #include <map>
 #include <iostream>
-
+#include <vector>
 #define IP "127.0.0.1"
 
 #define PORT_M "25682"
@@ -24,19 +24,13 @@
 
 #define MAXDATASIZE 100
 #define BACKLOG 10
+#define SHIFT_ENCRYP 4
 
 using namespace std;
 
-void *get_in_addr(struct sockaddr *sa)
-{
-    if (sa->sa_family == AF_INET)
-    {
-        return &(((struct sockaddr_in *)sa)->sin_addr);
-    }
+string username;
 
-    return &(((struct sockaddr_in6 *)sa)->sin6_addr);
-}
-
+// Find a valid socket fd and bind it to the address
 int getTcpSocketFd()
 {
     struct addrinfo hints, *servinfo, *p;
@@ -89,6 +83,7 @@ int getTcpSocketFd()
     return sockfd;
 }
 
+// Send username and password to serverC
 int varifyFromServerC(char *buf)
 {
     int sockfd;
@@ -127,6 +122,10 @@ int varifyFromServerC(char *buf)
         perror("talker: sendto");
         exit(1);
     }
+    else
+    {
+        cout << "The main server sent an authentication request to serverC." << endl;
+    }
 
     char res[1];
     struct sockaddr_storage their_addr;
@@ -135,6 +134,18 @@ int varifyFromServerC(char *buf)
     {
         perror("recvfrom");
         exit(1);
+    }
+    else
+    {
+        struct sockaddr_in sa;
+        socklen_t sa_len = sizeof(sa);
+        if (getsockname(sockfd, (struct sockaddr *)&sa, &sa_len) == -1)
+        {
+            perror("getsockname() failed");
+            exit(1);
+        }
+
+        printf("The main server received the result of the authentication request from ServerC using UDP over port %d.\n", ntohs(sa.sin_port));
     }
 
     freeaddrinfo(servinfo);
@@ -161,11 +172,11 @@ void encryption(char *buf)
                 init = 'a';
             }
 
-            buf[i] = (buf[i] - init + 4) % 26 + init;
+            buf[i] = (buf[i] - init + SHIFT_ENCRYP) % 26 + init;
         }
         else if (isdigit(tmp))
         {
-            buf[i] = buf[i] - '0' + 4 >= 10 ? buf[i] + 4 - 10 : buf[i] + 4;
+            buf[i] = buf[i] - '0' + SHIFT_ENCRYP >= 10 ? buf[i] + SHIFT_ENCRYP - 10 : buf[i] + SHIFT_ENCRYP;
         }
     }
 }
@@ -183,13 +194,40 @@ int auth(int new_fd)
     }
 
     buf[numbytes] = '\0';
-    encryption(buf);
 
-    return varifyFromServerC(buf);
+    username.clear();
+    int index = 1;
+
+    while (index < numbytes && buf[index] != ',')
+    {
+        username += buf[index++];
+    }
+
+    // if buf[0] == '1', the user wants to end connection
+    if (buf[0] == '1')
+    {
+        close(new_fd);
+        exit(0);
+    }
+
+    struct sockaddr_in sa;
+    socklen_t sa_len = sizeof(sa);
+    if (getsockname(new_fd, (struct sockaddr *)&sa, &sa_len) == -1)
+    {
+        perror("getsockname() failed");
+        exit(1);
+    }
+    printf("The main server received the authentication for %s using TCP over port %d.\n", username.c_str(), ntohs(sa.sin_port));
+
+    encryption(buf + 1);
+
+    return varifyFromServerC(buf + 1);
 }
 
-string getInfoFromServer(const char* port, string req)
+string getInfoFromServer(const char *port, string department, string req)
 {
+    printf("The main server sent a request to server%s.\n", department.c_str());
+
     int sockfd;
     struct addrinfo hints, *servinfo, *p;
     int numbytes;
@@ -237,9 +275,20 @@ string getInfoFromServer(const char* port, string req)
     }
 
     freeaddrinfo(servinfo);
+    res[numbytes] = '\0';
 
+    struct sockaddr_in sa;
+    socklen_t sa_len = sizeof(sa);
+    if (getsockname(sockfd, (struct sockaddr *)&sa, &sa_len) == -1)
+    {
+        perror("getsockname() failed");
+        exit(1);
+    }
+
+    printf("The main server received the response from server%s using UDP over port %d.\n", department.c_str(), ntohs(sa.sin_port));
+    
     close(sockfd);
-    return string(res, strlen(res));
+    return string(res + 1, strlen(res));
 }
 
 int processOneCourse(char *buf, int new_fd)
@@ -296,20 +345,72 @@ int processOneCourse(char *buf, int new_fd)
         return -1;
     }
 
+    struct sockaddr_in sa;
+    socklen_t sa_len = sizeof(sa);
+    if (getsockname(new_fd, (struct sockaddr *)&sa, &sa_len) == -1)
+    {
+        perror("getsockname() failed");
+        exit(1);
+    }
+
+    printf("The main server received from %s to query course %s about <category> using TCP over port %d.", username.c_str(), (department + courseCode).c_str(), ntohs(sa.sin_port));
+
     string req = courseCode + "," + category;
-    cout << req << endl;
     int sr;
-    string res; 
-    if(department == "EE"){
-        res = getInfoFromServer(PORT_EE, req);  
-    }else if(department == "CS"){
-        res = getInfoFromServer(PORT_CS, req);
-    }else{
-        res = "Course code not exist";
+    string res;
+    if (department == "EE")
+    {
+        res = getInfoFromServer(PORT_EE, "EE", "EE" + req);
+    }
+    else if (department == "CS")
+    {
+        res = getInfoFromServer(PORT_CS, "CS", "CS" + req);
+    }
+    else
+    {
+        res = "0Course code not exist";
     }
     sr = send(new_fd, res.c_str(), res.length(), 0);
+    cout << "The main server sent the query information to the client." << endl;
     return sr;
 }
+
+int processMultipleCourses(char *buf, int new_fd)
+{
+    int left = 1, right = 1;
+    string department;
+    string courseCode;
+    while (right < strlen(buf))
+    {
+        while (right < strlen(buf) && buf[right] != ' ')
+        {
+            right++;
+        }
+
+        string req(buf + left, right - left);
+        string res;
+        if (req.find("EE") != string::npos)
+        {
+            res = "1" + getInfoFromServer(PORT_EE, "EE", req + ",5");
+        }
+        else if (req.find("CS") != string::npos)
+        {
+            res = "1" + getInfoFromServer(PORT_CS, "CS", req + ",5");
+        }
+        else
+        {
+            res = "0Course code not exist";
+        }
+
+        int sr = send(new_fd, res.c_str(), res.length(), 0);
+        right++;
+        left = right;
+    }
+
+    cout << "finish sending all ans, send terminating message" << endl;
+    send(new_fd, "0", 1, 0);
+    return 0;
+};
 
 void processRequest(int new_fd)
 {
@@ -324,13 +425,14 @@ void processRequest(int new_fd)
     }
 
     buf[numbytes] = '\0';
-    cout << "processing request" << endl;
-    cout << "buf[0] is " << buf[0] << endl;
+
     if (buf[0] == '1')
     {
         processOneCourse(buf, new_fd);
-    }else{
-
+    }
+    else
+    {
+        processMultipleCourses(buf, new_fd);
     }
 }
 
@@ -338,21 +440,14 @@ bool acceptConnections(int sockfd)
 {
     struct sockaddr_storage their_addr;
     socklen_t sin_size = sizeof their_addr;
-    int new_fd;
-    char s[INET_ADDRSTRLEN];
 
-    new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
+    int new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
 
     if (new_fd == -1)
     {
         perror("accept");
         return false;
     }
-
-    inet_ntop(their_addr.ss_family,
-              get_in_addr((struct sockaddr *)&their_addr),
-              s, sizeof s);
-    printf("server: got connection from %s\n", s);
 
     if (!fork())
     {
@@ -367,15 +462,18 @@ bool acceptConnections(int sockfd)
             if (authRet == 0)
             {
                 sr = send(new_fd, "0", 1, 0);
+                cout << "The main server sent the authentication result to the client." << endl;
                 break;
             }
             else if (authRet == 1)
             {
                 sr = send(new_fd, "1", 1, 0);
+                cout << "The main server sent the authentication result to the client." << endl;
             }
             else if (authRet == 2)
             {
                 sr = send(new_fd, "2", 1, 0);
+                cout << "The main server sent the authentication result to the client." << endl;
             }
             else
             {
@@ -386,8 +484,11 @@ bool acceptConnections(int sockfd)
         }
 
         // get request
-        cout << "The user has passed the authentification" << endl;
-        processRequest(new_fd);
+        while (1)
+        {
+            processRequest(new_fd);
+        }
+
         close(new_fd);
         exit(0);
     }
