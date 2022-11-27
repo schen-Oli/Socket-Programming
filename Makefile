@@ -1,22 +1,22 @@
 all: client serverC serverCS serverEE serverM
 
 client:
-	g++ -o client client.cpp
+	g++ -std=c++11 -o client client.cpp
  
 serverC:
-	g++ -o serverC serverC.cpp
+	g++ -std=c++11 -o serverC serverC.cpp
 
 serverCS:
-	g++ -o serverCS serverCS.cpp
+	g++ -std=c++11 -o serverCS serverCS.cpp
 
 serverEE:
-	g++ -o serverEE serverEE.cpp
+	g++ -std=c++11 -o serverEE serverEE.cpp
 
 serverM:
-	g++ -o serverM serverM.cpp
+	g++ -std=c++11 -o serverM serverM.cpp
 
 t:
-	g++ -o test test.cpp
+	g++ -std=c++11 -o test test.cpp
 
 clean:
 	rm -f client serverC serverCS serverEE serverM test
