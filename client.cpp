@@ -2,7 +2,7 @@
 
 int main(void)
 {
-    cout << "The client is up and running" << endl;
+    cout << "The client is up and running." << endl;
     
     //set up socket 
     int sockfd;

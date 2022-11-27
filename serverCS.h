@@ -19,7 +19,6 @@
 #define PORT "22682"
 #define MAXBUFLEN 100
 
-// Credit / Professor / Days / CourseName / ALL
 #define CREDIT "1"
 #define PROFESSOR "2"
 #define DAYS "3"
@@ -27,8 +26,6 @@
 #define ALL "5"
 
 using namespace std;
-
-int sockfd;
 
 struct Course
 {
@@ -39,6 +36,7 @@ struct Course
     string name;
 };
 
+int sockfd = -1;
 map<string, Course> db;
 
 void readFile(string fileName)
@@ -48,13 +46,15 @@ void readFile(string fileName)
 
     if (!file.is_open())
     {
-        perror("failed to open credential file");
+        perror("ServerCS:\n Failed to open CS course file");
         exit(-1);
     }
 
     string line;
     while (getline(file, line))
     {
+        line.erase(remove(line.begin(), line.end(), '\n'), line.cend());
+        line.erase(remove(line.begin(), line.end(), '\r'), line.cend());
         stringstream ss(line);
         string code, credit, professor, days, name;
         getline(ss, code, ',');
@@ -79,7 +79,7 @@ void creatUDPConnection()
 
     if ((rv = getaddrinfo(IP, PORT, &hints, &servinfo)) != 0)
     {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+        fprintf(stderr, "ServerCS:\n getaddrinfo: %s\n", gai_strerror(rv));
         return;
     }
 
@@ -89,14 +89,14 @@ void creatUDPConnection()
         if ((sockfd = socket(p->ai_family, p->ai_socktype,
                              p->ai_protocol)) == -1)
         {
-            perror("serverCS, socket");
+            perror("ServerCS:\n socket");
             continue;
         }
 
         if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
         {
             close(sockfd);
-            perror("serverCS, bind");
+            perror("ServerCS:\n bind");
             continue;
         }
 
@@ -141,10 +141,12 @@ void checkMessage()
     socklen_t addr_len = sizeof their_addr;
 
     memset(buf, 0, sizeof buf);
+
+    // Recieve request message from main sever
     if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN - 1, 0, (struct sockaddr *)&their_addr, &addr_len)) == -1)
     {
-        perror("recvfrom");
-        exit(1);
+        perror("ServerCS:\n recvfrom");
+        return;
     }
 
     string msg(buf, strlen(buf));
@@ -153,21 +155,28 @@ void checkMessage()
     string code;
     string cat;
     getline(ss, code, ',');
+    if(ss.peek() == EOF){
+        cout << "ServerCS:\n incorrect input format." << endl;
+        cout << " Expected input format: Coursecode,RequestType (eg. CS450,3)" << endl;
+        return;
+    }
     getline(ss, cat);
 
     if(cat != ALL){
-        cout << "The ServerCS received a request from the Main Server about the " << getStringFromCategory(cat) << " of " << code << "." << endl;
+        printf("The serverCS received a request from the Main Server about the %s of %s.\n", getStringFromCategory(cat).c_str(), code.c_str());
+    }else{
+        printf("The serverCS received a request from the Main Server about %s.\n", code.c_str());
     }
 
     string res;
     if (!db.count(code))
     {
-        res = "0";
+        res = "1Didn’t find the course: " + code;
         cout << "Didn’t find the course: " << code << endl;
     }
     else
     {
-        res = "1";
+        res = "2";
         Course course = db[code];
         string information;
         if (cat == CREDIT)
@@ -193,14 +202,14 @@ void checkMessage()
 
         res += information;
         if(cat != ALL){
-            cout << "The course information has been found: The " << getStringFromCategory(cat) << " of " << code << " is " << information << "." << endl;
+            printf("The course information has been found: The %s of %s is %s.\n", getStringFromCategory(cat).c_str(), code.c_str(), information.c_str());
         }
     }
 
     if ((numbytes = sendto(sockfd, res.c_str(), res.length(), 0, (struct sockaddr *)&their_addr, addr_len)) == -1)
     {
-        perror("talker: sendto");
-        exit(1);
+        perror("ServerCS:\n sendto");
+        return;
     }
     cout << "The ServerCS finished sending the response to the Main Server." << endl;
 }

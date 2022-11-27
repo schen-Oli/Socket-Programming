@@ -109,7 +109,7 @@ void checkMessage()
     if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN - 1, 0, (struct sockaddr *)&their_addr, &addr_len)) == -1)
     {
         perror("serverC: recvfrom");
-        exit(1);
+        return;
     }
     cout << "The ServerC received an authentication request from the Main Server." << endl;
 
@@ -135,8 +135,8 @@ void checkMessage()
 
     if ((numbytes = sendto(sockfd, res, 1, 0, (struct sockaddr *)&their_addr, addr_len)) == -1)
     {
-        perror("serverC: sendto");
-        exit(1);
+        perror("ServerC: sendto");
+        return;
     }
     cout << "The ServerC finished sending the response to the Main Server." << endl;
 }

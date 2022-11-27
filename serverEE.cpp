@@ -2,7 +2,7 @@
 
 int main(void)
 {
-    readFile("ee.txt");
+    ReadFile("ee.txt");
     creatUDPConnection();
     while (1)
     {

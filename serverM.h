@@ -15,20 +15,62 @@
 #include <map>
 #include <iostream>
 #include <vector>
-#define IP "127.0.0.1"
 
+#define IP "127.0.0.1"
 #define PORT_M "25682"
 #define PORT_C "21682"
 #define PORT_CS "22682"
 #define PORT_EE "23682"
 
 #define MAXDATASIZE 100
-#define BACKLOG 10
 #define SHIFT_ENCRYP 4
+
+// Credit / Professor / Days / CourseName
+#define CREDIT '1'
+#define PROFESSOR '2'
+#define DAYS '3'
+#define COURSE_NAME '4'
+#define FULL '5'
 
 using namespace std;
 
 string username;
+
+// give the category in string format and return it's code
+string getCat(string category)
+{
+    if (category == "1")
+    {
+        return "credit";
+    }
+    else if (category == "2")
+    {
+        return "professor";
+    }
+    else if (category == "3")
+    {
+        return "days";
+    }
+    else if (category == "4")
+    {
+        return "course name";
+    }
+    return "all";
+}
+
+// get the port number given socket fd
+uint16_t getPortNumber(int sockfd)
+{
+    struct sockaddr_in sa;
+    socklen_t sa_len = sizeof(sa);
+    if (getsockname(sockfd, (struct sockaddr *)&sa, &sa_len) == -1)
+    {
+        perror("serverM:\n getsockname() failed");
+        return 0;
+    }
+
+    return ntohs(sa.sin_port);
+}
 
 // Find a valid socket fd and bind it to the address
 int getTcpSocketFd()
@@ -135,21 +177,9 @@ int varifyFromServerC(char *buf)
         perror("recvfrom");
         exit(1);
     }
-    else
-    {
-        struct sockaddr_in sa;
-        socklen_t sa_len = sizeof(sa);
-        if (getsockname(sockfd, (struct sockaddr *)&sa, &sa_len) == -1)
-        {
-            perror("getsockname() failed");
-            exit(1);
-        }
 
-        printf("The main server received the result of the authentication request from ServerC using UDP over port %d.\n", ntohs(sa.sin_port));
-    }
-
+    printf("The main server received the result of the authentication request from ServerC using UDP over port %d.\n", getPortNumber(sockfd));
     freeaddrinfo(servinfo);
-
     close(sockfd);
 
     return res[0] - '0';
@@ -195,6 +225,13 @@ int auth(int new_fd)
 
     buf[numbytes] = '\0';
 
+    // if buf[0] == '0', the user wants to end connection
+    if (buf[0] == '0')
+    {
+        close(new_fd);
+        exit(0);
+    }
+
     username.clear();
     int index = 1;
 
@@ -203,21 +240,7 @@ int auth(int new_fd)
         username += buf[index++];
     }
 
-    // if buf[0] == '1', the user wants to end connection
-    if (buf[0] == '1')
-    {
-        close(new_fd);
-        exit(0);
-    }
-
-    struct sockaddr_in sa;
-    socklen_t sa_len = sizeof(sa);
-    if (getsockname(new_fd, (struct sockaddr *)&sa, &sa_len) == -1)
-    {
-        perror("getsockname() failed");
-        exit(1);
-    }
-    printf("The main server received the authentication for %s using TCP over port %d.\n", username.c_str(), ntohs(sa.sin_port));
+    printf("The main server received the authentication for %s using TCP over port %d.\n", username.c_str(), getPortNumber(new_fd));
 
     encryption(buf + 1);
 
@@ -226,11 +249,8 @@ int auth(int new_fd)
 
 string getInfoFromServer(const char *port, string department, string req)
 {
-    printf("The main server sent a request to server%s.\n", department.c_str());
-
     int sockfd;
     struct addrinfo hints, *servinfo, *p;
-    int numbytes;
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
@@ -239,7 +259,7 @@ string getInfoFromServer(const char *port, string department, string req)
     int rv;
     if ((rv = getaddrinfo(IP, port, &hints, &servinfo)) != 0)
     {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+        fprintf(stderr, "ServerM: getaddrinfo: %s\n", gai_strerror(rv));
         return NULL;
     }
 
@@ -247,7 +267,7 @@ string getInfoFromServer(const char *port, string department, string req)
     {
         if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
         {
-            perror("serverM: failed to create socket");
+            perror("ServerM: failed to create socket");
             continue;
         }
         break;
@@ -255,15 +275,18 @@ string getInfoFromServer(const char *port, string department, string req)
 
     if (p == NULL)
     {
-        fprintf(stderr, "talker: failed to create socket\n");
+        fprintf(stderr, "ServerM: failed to create socket\n");
         return NULL;
     }
 
+    int numbytes;
     if ((numbytes = sendto(sockfd, req.c_str(), req.length(), 0, p->ai_addr, p->ai_addrlen)) == -1)
     {
-        perror("talker: sendto");
+        perror("ServerM: sendto");
         exit(1);
     }
+
+    printf("The main server sent a request to server%s.\n", department.c_str());
 
     char res[MAXDATASIZE];
     struct sockaddr_storage their_addr;
@@ -277,24 +300,14 @@ string getInfoFromServer(const char *port, string department, string req)
     freeaddrinfo(servinfo);
     res[numbytes] = '\0';
 
-    struct sockaddr_in sa;
-    socklen_t sa_len = sizeof(sa);
-    if (getsockname(sockfd, (struct sockaddr *)&sa, &sa_len) == -1)
-    {
-        perror("getsockname() failed");
-        exit(1);
-    }
+    printf("The main server received the response from server%s using UDP over port %d.\n", department.c_str(), getPortNumber(sockfd));
 
-    printf("The main server received the response from server%s using UDP over port %d.\n", department.c_str(), ntohs(sa.sin_port));
-    
     close(sockfd);
-    return string(res + 1, strlen(res));
+    return string(res, strlen(res));
 }
 
 int processOneCourse(char *buf, int new_fd)
 {
-    cout << "processing one requst " << string(buf, strlen(buf)) << endl;
-
     int index = 1;
     string department;
     string courseCode;
@@ -315,8 +328,6 @@ int processOneCourse(char *buf, int new_fd)
         return -1;
     }
 
-    cout << "department is " << department << endl;
-
     if (isdigit(buf[index]))
     {
         while (index < strlen(buf) && isdigit(buf[index]))
@@ -332,8 +343,6 @@ int processOneCourse(char *buf, int new_fd)
         return -1;
     }
 
-    cout << "courseCode is " << courseCode << endl;
-
     if (buf[index] == ',')
     {
         category += buf[index + 1];
@@ -345,15 +354,7 @@ int processOneCourse(char *buf, int new_fd)
         return -1;
     }
 
-    struct sockaddr_in sa;
-    socklen_t sa_len = sizeof(sa);
-    if (getsockname(new_fd, (struct sockaddr *)&sa, &sa_len) == -1)
-    {
-        perror("getsockname() failed");
-        exit(1);
-    }
-
-    printf("The main server received from %s to query course %s about <category> using TCP over port %d.", username.c_str(), (department + courseCode).c_str(), ntohs(sa.sin_port));
+    printf("The main server received from %s to query course %s about %s using TCP over port %d.\n", username.c_str(), (department + courseCode).c_str(), getCat(category).c_str(), getPortNumber(new_fd));
 
     string req = courseCode + "," + category;
     int sr;
@@ -368,10 +369,11 @@ int processOneCourse(char *buf, int new_fd)
     }
     else
     {
-        res = "0Course code not exist";
+        res = "1";
     }
     sr = send(new_fd, res.c_str(), res.length(), 0);
     cout << "The main server sent the query information to the client." << endl;
+
     return sr;
 }
 
@@ -391,24 +393,23 @@ int processMultipleCourses(char *buf, int new_fd)
         string res;
         if (req.find("EE") != string::npos)
         {
-            res = "1" + getInfoFromServer(PORT_EE, "EE", req + ",5");
+            res = getInfoFromServer(PORT_EE, "EE", req + ",5");
         }
         else if (req.find("CS") != string::npos)
         {
-            res = "1" + getInfoFromServer(PORT_CS, "CS", req + ",5");
+            res = getInfoFromServer(PORT_CS, "CS", req + ",5");
         }
         else
         {
-            res = "0Course code not exist";
+            res = "1Didn’t find the course: " + courseCode;
         }
 
         int sr = send(new_fd, res.c_str(), res.length(), 0);
+
         right++;
         left = right;
     }
 
-    cout << "finish sending all ans, send terminating message" << endl;
-    send(new_fd, "0", 1, 0);
     return 0;
 };
 
@@ -430,69 +431,53 @@ void processRequest(int new_fd)
     {
         processOneCourse(buf, new_fd);
     }
-    else
+    else if(buf[0] == '2')
     {
         processMultipleCourses(buf, new_fd);
+    }else{
+        close(new_fd);
+        exit(1);
     }
 }
 
-bool acceptConnections(int sockfd)
+void acceptConnections(int new_fd)
 {
-    struct sockaddr_storage their_addr;
-    socklen_t sin_size = sizeof their_addr;
-
-    int new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
-
-    if (new_fd == -1)
+    // authentification loop
+    while (1)
     {
-        perror("accept");
-        return false;
+        int sr;
+
+        int authRet = auth(new_fd);
+        if (authRet == 0)
+        {
+            sr = send(new_fd, "0", 1, 0);
+            cout << "The main server sent the authentication result to the client." << endl;
+            break;
+        }
+        else if (authRet == 1)
+        {
+            sr = send(new_fd, "1", 1, 0);
+            cout << "The main server sent the authentication result to the client." << endl;
+        }
+        else if (authRet == 2)
+        {
+            sr = send(new_fd, "2", 1, 0);
+            cout << "The main server sent the authentication result to the client." << endl;
+        }
+        if (sr == -1)
+        {
+            perror("send");
+            close(new_fd);
+            return;
+        }
     }
 
-    if (!fork())
+    // get request
+    while (1)
     {
-        close(sockfd); // child doesn't need the listener
-
-        // authentification loop
-        while (1)
-        {
-            int sr;
-
-            int authRet = auth(new_fd);
-            if (authRet == 0)
-            {
-                sr = send(new_fd, "0", 1, 0);
-                cout << "The main server sent the authentication result to the client." << endl;
-                break;
-            }
-            else if (authRet == 1)
-            {
-                sr = send(new_fd, "1", 1, 0);
-                cout << "The main server sent the authentication result to the client." << endl;
-            }
-            else if (authRet == 2)
-            {
-                sr = send(new_fd, "2", 1, 0);
-                cout << "The main server sent the authentication result to the client." << endl;
-            }
-            else
-            {
-                perror("send");
-                close(new_fd);
-                exit(1);
-            }
-        }
-
-        // get request
-        while (1)
-        {
-            processRequest(new_fd);
-        }
-
-        close(new_fd);
-        exit(0);
+        processRequest(new_fd);
     }
 
-    close(new_fd); // parent doesn't need this
-    return true;
+    close(new_fd);
+    exit(0);
 }

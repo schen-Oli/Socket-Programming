@@ -36,6 +36,58 @@ using namespace std;
 
 string username;
 
+// get the port number given socket fd
+uint16_t getPortNumber(int sockfd)
+{
+    struct sockaddr_in sa;
+    socklen_t sa_len = sizeof(sa);
+    if (getsockname(sockfd, (struct sockaddr *)&sa, &sa_len) == -1)
+    {
+        perror("Client:\n getsockname() failed");
+        return 0;
+    }
+
+    return ntohs(sa.sin_port);
+}
+
+// Trim the leading and tailing space of a string
+string trim(string input)
+{
+    int start = 0;
+    int end = input.length() - 1;
+    while (input[start] == ' ')
+    {
+        start++;
+    }
+    while (input[end] == ' ')
+    {
+        end--;
+    }
+    return input.substr(start, end - start + 1);
+}
+
+// give the category in string format and return it's code
+char getCat(string category)
+{
+    if (category == "Credit")
+    {
+        return CREDIT;
+    }
+    else if (category == "Professor")
+    {
+        return PROFESSOR;
+    }
+    else if (category == "Days")
+    {
+        return DAYS;
+    }
+    else if (category == "CourseName")
+    {
+        return COURSE_NAME;
+    }
+    return '0';
+}
+
 int getSolidSocketFd()
 {
     struct addrinfo hints, *servinfo, *p;
@@ -94,10 +146,9 @@ void auth(int sockfd)
         string password;
         cin >> password;
 
-        string data = "0" + username + "," + password;
-
-        char buf[MAXDATASIZE];
-        int numbytes;
+        // Append 1 at the front of request
+        // Demonstrate that client wants to keep connected
+        string data = "1" + username + "," + password;
 
         if (send(sockfd, data.c_str(), data.size(), 0) != data.size())
         {
@@ -107,17 +158,11 @@ void auth(int sockfd)
 
         cout << username << " sent an authentication request to the main server." << endl;
 
+        char buf[MAXDATASIZE];
+        int numbytes;
         if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) == -1)
         {
             perror("recv");
-            exit(1);
-        }
-
-        struct sockaddr_in sa;
-        socklen_t sa_len = sizeof(sa);
-        if (getsockname(sockfd, (struct sockaddr *)&sa, &sa_len) == -1)
-        {
-            perror("getsockname() failed");
             exit(1);
         }
 
@@ -125,21 +170,22 @@ void auth(int sockfd)
 
         if (buf[0] == '1')
         {
-            printf("%s received the result of authentication using TCP over port %d. Authentication failed: Username Does not exist\n", username.c_str(), ntohs(sa.sin_port));
+            printf("%s received the result of authentication using TCP over port %d. Authentication failed: Username Does not exist\n", username.c_str(), getPortNumber(sockfd));
             printf("Attempts remaining:%d\n", cnt);
         }
         else if (buf[0] == '2')
         {
-            printf("%s received the result of authentication using TCP over port %d. Authentication failed: Password does not match\n", username.c_str(), ntohs(sa.sin_port));
+            printf("%s received the result of authentication using TCP over port %d. Authentication failed: Password does not match\n", username.c_str(), getPortNumber(sockfd));
             printf("Attempts remaining:%d\n", cnt);
         }
         else
         {
-            printf("%s received the result of authentication using TCP over port %d. Authentication is successful\n", username.c_str(), ntohs(sa.sin_port));
+            printf("%s received the result of authentication using TCP over port %d. Authentication is successful\n", username.c_str(), getPortNumber(sockfd));
             return;
         }
     }
 
+    // Send 0 to tell the serverM that client wants to end connection
     if (send(sockfd, "0", 1, 0) == -1)
     {
         perror("Client");
@@ -151,28 +197,19 @@ void auth(int sockfd)
     exit(1);
 }
 
-char getCat(string category)
-{
-    if (category == "Credit")
-    {
-        return CREDIT;
-    }
-    else if (category == "Professor")
-    {
-        return PROFESSOR;
-    }
-    else if (category == "Days")
-    {
-        return DAYS;
-    }
-    return COURSE_NAME;
-}
-
 void requestOneCourse(string req, string code, int sockfd)
 {
-    cout << "Please enter the category (Credit / Professor / Days / CourseName): ";
     string category;
-    cin >> category;
+    while (getCat(category) == '0')
+    {
+        if (!category.empty())
+        {
+            cout << "Wrong category format." << endl;
+        }
+        category.clear();
+        cout << "Please enter the category (Credit / Professor / Days / CourseName): ";
+        cin >> category;
+    }
 
     string dep;
     string courseCode;
@@ -198,21 +235,36 @@ void requestOneCourse(string req, string code, int sockfd)
         perror("recv");
         exit(1);
     }
+    else
+    {
+        printf("The client received the response from the Main server using TCP over port %d.\n", getPortNumber(sockfd));
+    }
 
     buf[numbytes] = '\0';
-    string resposne = string(buf, strlen(buf));
-    printf("The %s of %s is %s.\n", category.c_str(), code.c_str(), buf);
+
+
+    if (buf[0] == '1')
+    {
+        printf("Didn’t find the course: %s.\n", code.c_str());
+    }
+    else
+    {
+        string resposne = string(buf + 1, numbytes - 1);
+        printf("The %s of %s is %s.\n", category.c_str(), code.c_str(), buf + 1);
+    }
 }
 
 void requestMultiCourse(string req, string code, int sockfd)
 {
-    // form request
     int index = 0;
+    int cnt = 0;
+    // compose request and remove extra spaces between course code
     while (index < code.length())
     {
         if (code[index] == ' ')
         {
             req.append(" ");
+            cnt++;
             while (index < code.length() && code[index] == ' ')
             {
                 index++;
@@ -237,10 +289,8 @@ void requestMultiCourse(string req, string code, int sockfd)
         }
     }
 
-    const char *msg = req.c_str();
-
     int numbytes;
-    if (send(sockfd, msg, req.size(), 0) != req.size())
+    if (send(sockfd, req.c_str(), req.size(), 0) != req.size())
     {
         perror("send");
         exit(1);
@@ -249,14 +299,21 @@ void requestMultiCourse(string req, string code, int sockfd)
     cout << username << " sent a request with multiple CourseCode to the main server." << endl;
     bool printed = false;
 
-    while (1)
+    // keep recieve response from serverM until "-" is recieved
+    while (cnt + 1 > 0)
     {
         char buf[MAXDATASIZE];
         memset(buf, 0, sizeof buf);
         if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) == -1)
         {
-            perror("recv");
+            perror("Client:\n recv");
             exit(1);
+        }
+        else if (!printed)
+        {
+            printf("The client received the response from the Main server using TCP over port %d.\n", getPortNumber(sockfd));
+            printf("CourseCode: Credits, Professor, Days, Course Name\n");
+            printed = true;
         }
 
         if (buf[0] == '0')
@@ -264,30 +321,12 @@ void requestMultiCourse(string req, string code, int sockfd)
             break;
         }
 
-        if (!printed)
-        {
-            cout << "The client received the response from the Main server using TCP over port " << PORT << "." << endl;
-            printed = true;
-        }
         buf[numbytes] = '\0';
-        string resposne = string(buf + 1, strlen(buf) - 1);
-        cout << resposne << endl;
-    }
-}
 
-string trim(string input)
-{
-    int start = 0;
-    int end = input.length() - 1;
-    while (input[start] == ' ')
-    {
-        start++;
+        string response = string(buf + 1, strlen(buf) - 1);
+        cout << response << endl;
+        cnt--;
     }
-    while (input[end] == ' ')
-    {
-        end--;
-    }
-    return input.substr(start, end - start + 1);
 }
 
 void requestCourse(int sockfd)
