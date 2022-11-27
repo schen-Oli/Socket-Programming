@@ -47,8 +47,9 @@ void readFile(string fileName)
         string password;
         getline(ss, username, ',');
         getline(ss, password);
-        password.erase(remove(password.begin(), password.end(), '\n'), password.cend());
-        password.erase(remove(password.begin(), password.end(), '\r'), password.cend());
+        while(password[password.length() - 1] == '\r' || password[password.length() - 1] == '\n'){
+            password.erase(password.length() - 1);
+        }
         db.insert(make_pair(username, password));
     }
 }

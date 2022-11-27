@@ -53,8 +53,6 @@ void readFile(string fileName)
     string line;
     while (getline(file, line))
     {
-        line.erase(remove(line.begin(), line.end(), '\n'), line.cend());
-        line.erase(remove(line.begin(), line.end(), '\r'), line.cend());
         stringstream ss(line);
         string code, credit, professor, days, name;
         getline(ss, code, ',');
@@ -62,6 +60,9 @@ void readFile(string fileName)
         getline(ss, professor, ',');
         getline(ss, days, ',');
         getline(ss, name, ',');
+        while(name[name.length() - 1] == '\r' || name[name.length() - 1] == '\n'){
+            name.erase(name.length() - 1);
+        }
         Course course = {code, credit, professor, days, name};
         db[code] = course;
     }
