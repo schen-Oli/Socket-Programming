@@ -33,7 +33,6 @@ __1. client -> serverM:__
          * Type = 4: CourseName
       + Multiple courses: `2<Coursecode> <Coursecode> <Coursecode>` (eg. 2EE450 CS561 DS304)
 
-
 __2. serverM -> client:__
    - Authentification: `<Authentification>` (eg. 0)
       + 0: Success
