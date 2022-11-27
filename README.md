@@ -22,35 +22,38 @@ serverEE.cpp
 ---
 ## **The format of all the messages exchanged:**
 __1. client -> serverM:__
-   - Authentification: `<Flag><Username>,<Password>`
+   - Authentification: `<Flag><Username>,<Password>` (eg. 1harry,vhjwefh)
       + Flag = 0: Inform serverM that client wants to close connection
       + Flag = 1: An actual authentification request
    - Request: 
-      + One course: `1<Coursecode>,<Type>`
+      + One course: `1<Coursecode>,<Type>` (eg. 1EE450,2)
          * Type = 1: Credit
          * Type = 2: Professor
          * Type = 3: Days
          * Type = 4: CourseName
-      + Multiple courses: `2<Coursecode> <Coursecode> <Coursecode>`
+      + Multiple courses: `2<Coursecode> <Coursecode> <Coursecode>` (eg. 2EE450 CS561 DS304)
 
 
 __2. serverM -> client:__
-   - Authentification: `<Authentification>`
+   - Authentification: `<Authentification>` (eg. 0)
       + 0: Success
       + 1: No Such User
       + 2: Password Not Match
-   - Response `<Flag><Response>`
+   - Response `<Flag><Response>` (eg. 2Thu,Fri)
       + Flag = 0: Server finished sending all messages
       + Flag = 1: Server failed to find course
       + Flag = 2: Server successfully retrieves the information
    
-1. serverM -> serverC:
-   0username,password in encrypted characters
+__3. serverM -> serverC:__
+   - `<Username,Password>` in encrypted characters. (eg. fuds1-?,fhja4-?)
 
-2. serverC -> serverM:
-   '0' means pass
-   '1' means failed: no such user
-   '2' means failed: password does not match
+__4. serverC -> serverM:__
+   - `<Authentification>` (eg. 0)
+      + 0: Success
+      + 1: No Such User
+      + 2: Password Not Match
+
+__5. serverM -> serverCS:__
 
 g. Any idiosyncrasy of your project. It should say under what conditions the project
 fails, if any.
