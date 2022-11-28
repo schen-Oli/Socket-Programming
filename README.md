@@ -101,5 +101,12 @@ __6. ServerCS / ServerEE -> ServerM:__
 - Did you use code from anywhere for your project? Yes
 - If so, what functions and where they're from:
    - client.h:
-      - `getPortNumber()` Refer the code from the assignment description
-      - `getSolidSocketFd()` Refer the code from "Beej's Guide to Network Programming"
+      - `getPortNumber()` Refer to the assignment description
+      - `getSolidSocketFd()` Refer to TCP client code from "Beej's Guide to Network Programming"
+   - serverC.h, serverCS.h, severEE.h:
+      - `creatUDPConnection()` Refer to UDP server code  "Beej's Guide to Network Programming"
+   - serverM.h
+      - `getPortNumber()` Refer to the assignment description
+      - `getTcpSocketFd()` Refer to TCP server code from "Beej's Guide to Network Programming"
+      - `varifyFromServerC(char *buf)` Refer to UDP client code from "Beej's Guide to Network Programming"
+      - `getInfoFromServer(const char *port, string department, string req)` Refer to UDP client code from "Beej's Guide to Network Programming"

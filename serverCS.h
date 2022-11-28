@@ -39,6 +39,7 @@ struct Course
 int sockfd = -1;
 map<string, Course> db;
 
+// Read CS courses to a hashmap given file name
 void readFile(string fileName)
 {
     ifstream file;
@@ -60,6 +61,7 @@ void readFile(string fileName)
         getline(ss, professor, ',');
         getline(ss, days, ',');
         getline(ss, name, ',');
+        // remove tailing '\r' and '\n'
         while(name[name.length() - 1] == '\r' || name[name.length() - 1] == '\n'){
             name.erase(name.length() - 1);
         }
@@ -68,6 +70,8 @@ void readFile(string fileName)
     }
 }
 
+// Find a valid socket fd and bind it to the port 22682
+// Refer to "Beej's Guide to Network Programming"
 void creatUDPConnection()
 {
     struct addrinfo hints;
@@ -114,11 +118,11 @@ void creatUDPConnection()
     cout << "The ServerCS is up and running using UDP on port " << PORT << "." << endl;
 }
 
+// return all information of a course as a string
+// eg. EE450: 4, Ali Zahid, Tue;Thu, Introduction to Computer Networks
 string getAllInfo(Course course)
 {
-    string ret;
-    ret = course.code + ": " + course.credit + ", " + course.professor + ", " + course.days + ", " + course.name;
-    return ret;
+    return course.code + ": " + course.credit + ", " + course.professor + ", " + course.days + ", " + course.name;
 }
 
 string getStringFromCategory(string cat)
@@ -134,6 +138,9 @@ string getStringFromCategory(string cat)
     return NULL;
 }
 
+// Recieve request from serverM
+// Check course information from map db
+// Format and send response to serverM
 void checkMessage()
 {
     int numbytes;
@@ -146,7 +153,7 @@ void checkMessage()
     // Recieve request message from main sever
     if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN - 1, 0, (struct sockaddr *)&their_addr, &addr_len)) == -1)
     {
-        perror("ServerCS:\n recvfrom");
+        perror("checkMessage - recvfrom");
         return;
     }
 
@@ -157,8 +164,8 @@ void checkMessage()
     string cat;
     getline(ss, code, ',');
     if(ss.peek() == EOF){
-        cout << "ServerCS:\n incorrect input format." << endl;
-        cout << " Expected input format: Coursecode,RequestType (eg. CS450,3)" << endl;
+        cout << "checkMessage - incorrect input format." << endl;
+        cout << "Expected input format: Coursecode,RequestType (eg. CS450,3)" << endl;
         return;
     }
     getline(ss, cat);

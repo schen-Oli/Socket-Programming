@@ -1,7 +1,5 @@
 #include "serverC.h"
 
-// Credential Server
-
 int main(void)
 {
     readFile("cred.txt"); 

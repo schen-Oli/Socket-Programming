@@ -25,7 +25,6 @@
 #define MAXDATASIZE 100
 #define SHIFT_ENCRYP 4
 
-// Credit / Professor / Days / CourseName
 #define CREDIT '1'
 #define PROFESSOR '2'
 #define DAYS '3'
@@ -59,6 +58,7 @@ string getCat(string category)
 }
 
 // get the port number given socket fd
+// Refer to the assignment description
 uint16_t getPortNumber(int sockfd)
 {
     struct sockaddr_in sa;
@@ -72,7 +72,8 @@ uint16_t getPortNumber(int sockfd)
     return ntohs(sa.sin_port);
 }
 
-// Find a valid socket fd and bind it to the address
+// Find a valid socket fd and bind it to the port 25682
+// Refer to "Beej's Guide to Network Programming"
 int getTcpSocketFd()
 {
     struct addrinfo hints, *servinfo, *p;
@@ -125,9 +126,12 @@ int getTcpSocketFd()
     return sockfd;
 }
 
-// Send username and password to serverC
+// create a UDP socket to serverC
+// Send username and password to serverC throught the UDP socket 
+// return response as integer
 int varifyFromServerC(char *buf)
 {
+    // Refer to "Beej's Guide to Network Programming"
     int sockfd;
     struct addrinfo hints, *servinfo, *p;
     int numbytes;
@@ -185,6 +189,7 @@ int varifyFromServerC(char *buf)
     return res[0] - '0';
 }
 
+// offset each letter or number by 4
 void encryption(char *buf)
 {
     for (int i = 0; i < strlen(buf); i++)
@@ -211,6 +216,8 @@ void encryption(char *buf)
     }
 }
 
+// Recieve authentication request from Client
+// Return authentication result as integer
 int auth(int new_fd)
 {
     int numbytes;
@@ -247,8 +254,12 @@ int auth(int new_fd)
     return varifyFromServerC(buf + 1);
 }
 
+// create a UDP socket to serverEE / serverCS
+// Send reqeust to serverEE / serverCS throught the UDP socket 
+// return response as a string
 string getInfoFromServer(const char *port, string department, string req)
 {
+    // Refer to "Beej's Guide to Network Programming"
     int sockfd;
     struct addrinfo hints, *servinfo, *p;
 
@@ -306,6 +317,7 @@ string getInfoFromServer(const char *port, string department, string req)
     return string(res, strlen(res));
 }
 
+// process request for one course information
 int processOneCourse(char *buf, int new_fd)
 {
     int index = 1;
@@ -377,6 +389,7 @@ int processOneCourse(char *buf, int new_fd)
     return sr;
 }
 
+// process request for multiple course information
 int processMultipleCourses(char *buf, int new_fd)
 {
     string department;
@@ -431,6 +444,8 @@ int processMultipleCourses(char *buf, int new_fd)
     return sr;
 }
 
+// recieve request from client
+// determine whether its a single course request or multiple course request
 void processRequest(int new_fd)
 {
     int numbytes;

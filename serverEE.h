@@ -62,6 +62,7 @@ void ReadFile(string fileName)
         getline(ss, professor, ',');
         getline(ss, days, ',');
         getline(ss, name, ',');
+        // remove tailing '\r' and '\n'
         while(name[name.length() - 1] == '\r' || name[name.length() - 1] == '\n'){
             name.erase(name.length() - 1);
         }
@@ -70,7 +71,8 @@ void ReadFile(string fileName)
     }
 }
 
-/* Find a valid socket fd and bind it to the port 23682 */
+// Find a valid socket fd and bind it to the port 23682
+// Refer to "Beej's Guide to Network Programming"
 void creatUDPConnection()
 {
     struct addrinfo hints;
@@ -116,6 +118,8 @@ void creatUDPConnection()
     printf("The serverEE is up and running using UDP on port %s.\n", EE_PORT);
 }
 
+// return all information of a course as a string
+// eg. EE450: 4, Ali Zahid, Tue;Thu, Introduction to Computer Networks
 string getAllInfo(Course course)
 {
     return course.code + ": " + course.credit + ", " + course.professor + ", " + course.days + ", " + course.name;
@@ -134,6 +138,9 @@ string getStringFromCategory(string cat)
     return NULL;
 }
 
+// Recieve request from serverM
+// Check course information from map db
+// Format and send response to serverM
 void checkMessage()
 {
     int numbytes;
@@ -146,7 +153,7 @@ void checkMessage()
     // Recieve request message from main sever
     if ((numbytes = recvfrom(sockfd, buf, EE_MAXBUFLEN - 1, 0, (struct sockaddr *)&their_addr, &addr_len)) == -1)
     {
-        perror("ServerEE:\n recvfrom");
+        perror("checkMessage - recvfrom");
         return;
     }
 
@@ -158,7 +165,7 @@ void checkMessage()
     getline(ss, code, ',');
     if(ss.peek() == EOF){
         cout << "ServerEE:\n incorrect input format." << endl;
-        cout << " Expected input format: Coursecode,RequestType (eg. EE450,3)" << endl;
+        cout << "Expected input format: Coursecode,RequestType (eg. EE450,3)" << endl;
         return;
     }
     getline(ss, cat);

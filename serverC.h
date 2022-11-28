@@ -47,6 +47,7 @@ void readFile(string fileName)
         string password;
         getline(ss, username, ',');
         getline(ss, password);
+        // remove tailing '\r' and '\n'
         while(password[password.length() - 1] == '\r' || password[password.length() - 1] == '\n'){
             password.erase(password.length() - 1);
         }
@@ -54,6 +55,8 @@ void readFile(string fileName)
     }
 }
 
+// Find a valid socket fd and bind the port to it
+// Code refers to "Beej's Guide to Network Programming"
 void creatUDPConnection()
 {
     struct addrinfo hints;
@@ -99,6 +102,9 @@ void creatUDPConnection()
     freeaddrinfo(servinfo);
 }
 
+// Recieve authentication message from ServerM
+// Check username and password against map db
+// Send response to ServerM
 void checkMessage()
 {
     int numbytes;
