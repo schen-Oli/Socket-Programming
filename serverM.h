@@ -17,10 +17,11 @@
 #include <vector>
 
 #define IP "127.0.0.1"
-#define PORT_M "25682"
 #define PORT_C "21682"
 #define PORT_CS "22682"
 #define PORT_EE "23682"
+#define PORT_M "25682"
+#define PORT_M_UDP "24682"
 
 #define MAXDATASIZE 100
 #define SHIFT_ENCRYP 4
@@ -133,7 +134,7 @@ int varifyFromServerC(char *buf)
 {
     // Refer to "Beej's Guide to Network Programming"
     int sockfd;
-    struct addrinfo hints, *servinfo, *p;
+    struct addrinfo hints, *servinfoM, *servinfoC, *p;
     int numbytes;
 
     memset(&hints, 0, sizeof hints);
@@ -141,33 +142,48 @@ int varifyFromServerC(char *buf)
     hints.ai_socktype = SOCK_DGRAM;
 
     int rv;
-    if ((rv = getaddrinfo(IP, PORT_C, &hints, &servinfo)) != 0)
+    if ((rv = getaddrinfo(IP, PORT_M_UDP, &hints, &servinfoM)) != 0)
     {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-        return false;
+        fprintf(stderr, "varifyFromServerC - getaddrinfo: %s\n", gai_strerror(rv));
+        return -1;
     }
 
-    for (p = servinfo; p != NULL; p = p->ai_next)
+    for (p = servinfoM; p != NULL; p = p->ai_next)
     {
         if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
         {
-            perror("talker: socket");
+            perror("varifyFromServerC - socket");
             continue;
         }
+
+        if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
+        {
+            close(sockfd);
+            perror("varifyFromServerC - bind");
+            continue;
+        }
+
         break;
+    }
+
+    if ((rv = getaddrinfo(IP, PORT_C, &hints, &servinfoC)) != 0)
+    {
+        fprintf(stderr, "varifyFromServerC - getaddrinfo: %s\n", gai_strerror(rv));
+        return -1;
     }
 
     if (p == NULL)
     {
-        fprintf(stderr, "talker: failed to create socket\n");
-        return 2;
+        fprintf(stderr, "varifyFromServerC - failed to create socket\n");
+        return -1;
     }
 
-    if ((numbytes = sendto(sockfd, buf, strlen(buf), 0, p->ai_addr, p->ai_addrlen)) == -1)
+    if ((numbytes = sendto(sockfd, buf, strlen(buf), 0, servinfoC->ai_addr, servinfoC->ai_addrlen)) == -1)
     {
-        perror("talker: sendto");
+        perror("varifyFromServerC - sendto");
         exit(1);
     }
+
     else
     {
         cout << "The main server sent an authentication request to serverC." << endl;
@@ -183,7 +199,8 @@ int varifyFromServerC(char *buf)
     }
 
     printf("The main server received the result of the authentication request from ServerC using UDP over port %d.\n", getPortNumber(sockfd));
-    freeaddrinfo(servinfo);
+    freeaddrinfo(servinfoM);
+    freeaddrinfo(servinfoC);
     close(sockfd);
 
     return res[0] - '0';
@@ -261,24 +278,31 @@ string getInfoFromServer(const char *port, string department, string req)
 {
     // Refer to "Beej's Guide to Network Programming"
     int sockfd;
-    struct addrinfo hints, *servinfo, *p;
+    struct addrinfo hints, *servinfoM, *servinfoX, *p;
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_DGRAM;
 
     int rv;
-    if ((rv = getaddrinfo(IP, port, &hints, &servinfo)) != 0)
+    if ((rv = getaddrinfo(IP, PORT_M_UDP, &hints, &servinfoM)) != 0)
     {
-        fprintf(stderr, "ServerM: getaddrinfo: %s\n", gai_strerror(rv));
+        fprintf(stderr, "getInfoFromServer - getaddrinfo: %s\n", gai_strerror(rv));
         return NULL;
     }
 
-    for (p = servinfo; p != NULL; p = p->ai_next)
+    for (p = servinfoM; p != NULL; p = p->ai_next)
     {
         if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
         {
-            perror("ServerM: failed to create socket");
+            perror("getInfoFromServer - failed to create socket");
+            continue;
+        }
+
+        if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
+        {
+            close(sockfd);
+            perror("getInfoFromServer - bind");
             continue;
         }
         break;
@@ -286,12 +310,18 @@ string getInfoFromServer(const char *port, string department, string req)
 
     if (p == NULL)
     {
-        fprintf(stderr, "ServerM: failed to create socket\n");
+        fprintf(stderr, "getInfoFromServer - failed to create socket\n");
+        return NULL;
+    }
+
+    if ((rv = getaddrinfo(IP, port, &hints, &servinfoX)) != 0)
+    {
+        fprintf(stderr, "getInfoFromServer - getaddrinfo: %s\n", gai_strerror(rv));
         return NULL;
     }
 
     int numbytes;
-    if ((numbytes = sendto(sockfd, req.c_str(), req.length(), 0, p->ai_addr, p->ai_addrlen)) == -1)
+    if ((numbytes = sendto(sockfd, req.c_str(), req.length(), 0, servinfoX->ai_addr, servinfoX->ai_addrlen)) == -1)
     {
         perror("ServerM: sendto");
         exit(1);
@@ -308,7 +338,8 @@ string getInfoFromServer(const char *port, string department, string req)
         exit(1);
     }
 
-    freeaddrinfo(servinfo);
+    freeaddrinfo(servinfoM);
+    freeaddrinfo(servinfoX);
     res[numbytes] = '\0';
 
     printf("The main server received the response from server%s using UDP over port %d.\n", department.c_str(), getPortNumber(sockfd));
