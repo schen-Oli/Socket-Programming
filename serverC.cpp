@@ -2,7 +2,7 @@
 
 int main(void)
 {
-    readFile("cred.txt"); 
+    readFile(); 
     creatUDPConnection(); 
     cout << "The ServerC is up and running using UDP on port " << PORT << "." << endl;
 

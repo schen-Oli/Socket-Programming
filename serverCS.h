@@ -40,10 +40,10 @@ int sockfd = -1;
 map<string, Course> db;
 
 // Read CS courses to a hashmap given file name
-void readFile(string fileName)
+void readFile()
 {
     ifstream file;
-    file.open(fileName);
+    file.open("cs.txt", ios::in);
 
     if (!file.is_open())
     {

@@ -2,7 +2,7 @@
 
 int main(void)
 {
-    readFile("cs.txt");
+    readFile();
     creatUDPConnection();
     while (1)
     {

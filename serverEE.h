@@ -41,10 +41,10 @@ int sockfd = -1;
 map<string, Course> db;
 
 // Read EE courses to a hashmap given file name
-void ReadFile(string fileName)
+void ReadFile()
 {
     ifstream file;
-    file.open(fileName);
+    file.open("ee.txt", ios::in);
 
     if (!file.is_open())
     {

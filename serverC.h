@@ -28,10 +28,10 @@ using namespace std;
 map<string, string> db;
 int sockfd;
 
-void readFile(string fileName)
+void readFile()
 {
     ifstream file;
-    file.open(fileName);
+    file.open("cred.txt", ios::in);
 
     if (!file.is_open())
     {
