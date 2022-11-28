@@ -379,39 +379,57 @@ int processOneCourse(char *buf, int new_fd)
 
 int processMultipleCourses(char *buf, int new_fd)
 {
-    int left = 1, right = 1;
     string department;
     string courseCode;
-    while (right < strlen(buf))
+
+    int index = 1;
+    if (isalpha(buf[index]))
     {
-        while (right < strlen(buf) && buf[right] != ' ')
+        while (index < strlen(buf) && isalpha(buf[index]))
         {
-            right++;
+            department += buf[index];
+            index++;
         }
-
-        string req(buf + left, right - left);
-        string res;
-        if (req.find("EE") != string::npos)
-        {
-            res = getInfoFromServer(PORT_EE, "EE", req + ",5");
-        }
-        else if (req.find("CS") != string::npos)
-        {
-            res = getInfoFromServer(PORT_CS, "CS", req + ",5");
-        }
-        else
-        {
-            res = "1Didn’t find the course: " + courseCode;
-        }
-
-        int sr = send(new_fd, res.c_str(), res.length(), 0);
-
-        right++;
-        left = right;
+    }
+    else
+    {
+        cout << "char in index " << index << " is " << buf[index];
+        perror("wrong request format");
+        return -1;
     }
 
-    return 0;
-};
+    if (isdigit(buf[index]))
+    {
+        while (index < strlen(buf) && isdigit(buf[index]))
+        {
+            courseCode += buf[index];
+            index++;
+        }
+    }
+    else
+    {
+        cout << "char in index " << index << " is " << buf[index];
+        perror("wrong request format");
+        return -1;
+    }
+
+    string res;
+    if (department == "EE")
+    {
+        res = getInfoFromServer(PORT_EE, "EE", department + courseCode + ",5");
+    }
+    else if (department == "CS")
+    {
+        res = getInfoFromServer(PORT_CS, "CS", department + courseCode + ",5");
+    }
+    else
+    {
+        res = "1Didn’t find the course: " + department + courseCode;
+    }
+
+    int sr = send(new_fd, res.c_str(), res.length(), 0);
+    return sr;
+}
 
 void processRequest(int new_fd)
 {
@@ -431,10 +449,12 @@ void processRequest(int new_fd)
     {
         processOneCourse(buf, new_fd);
     }
-    else if(buf[0] == '2')
+    else if (buf[0] == '2')
     {
         processMultipleCourses(buf, new_fd);
-    }else{
+    }
+    else
+    {
         close(new_fd);
         exit(1);
     }

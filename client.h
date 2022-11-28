@@ -15,6 +15,8 @@
 #include <map>
 #include <iostream>
 #include <ctype.h>
+#include <set>
+#include <vector>
 
 #define IP "127.0.0.1"
 #define PORT "25682" // port number of serverM
@@ -242,7 +244,6 @@ void requestOneCourse(string req, string code, int sockfd)
 
     buf[numbytes] = '\0';
 
-
     if (buf[0] == '1')
     {
         printf("Didn’t find the course: %s.\n", code.c_str());
@@ -256,52 +257,52 @@ void requestOneCourse(string req, string code, int sockfd)
 
 void requestMultiCourse(string req, string code, int sockfd)
 {
-    int index = 0;
-    int cnt = 0;
-    // compose request and remove extra spaces between course code
-    while (index < code.length())
+    set<string> codeSet;
+    vector<string> codes;
+
+    string tmpCode;
+    int left = 0, right = 0;
+
+    while (right < code.length())
     {
-        if (code[index] == ' ')
+        if (code[right] == ' ')
         {
-            req.append(" ");
-            cnt++;
-            while (index < code.length() && code[index] == ' ')
+            tmpCode = code.substr(left, right - left);
+            codeSet.insert(tmpCode);
+            codes.push_back(tmpCode);
+            while (right < code.length() && code[right] == ' ')
             {
-                index++;
+                right++;
             }
+            left = right;
         }
 
-        if (isalpha(code[index]))
-        {
-            string dep;
-            while (index < code.length() && isalpha(code[index]))
-            {
-                dep += code[index];
-                index++;
-            }
-            req += dep;
-        }
-
-        if (isdigit(code[index]))
-        {
-            req += code[index];
-            index++;
-        }
+        right++;
     }
-
-    int numbytes;
-    if (send(sockfd, req.c_str(), req.size(), 0) != req.size())
-    {
-        perror("send");
-        exit(1);
-    }
+    tmpCode = code.substr(left, right - left);
+    codeSet.insert(tmpCode);
+    codes.push_back(tmpCode);
 
     cout << username << " sent a request with multiple CourseCode to the main server." << endl;
     bool printed = false;
-
-    // keep recieve response from serverM until "-" is recieved
-    while (cnt + 1 > 0)
+    for (int i = 0; i < codes.size(); i++)
     {
+        string curr = codes[i];
+        if (codeSet.count(curr) == 0)
+        {
+            continue;
+        }else{
+            codeSet.erase(curr);
+        }
+
+        int numbytes;
+        string reqMessage = req + curr;
+        if (send(sockfd, reqMessage.c_str(), reqMessage.size(), 0) == -1)
+        {
+            perror("send");
+            exit(1);
+        }
+
         char buf[MAXDATASIZE];
         memset(buf, 0, sizeof buf);
         if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) == -1)
@@ -316,16 +317,10 @@ void requestMultiCourse(string req, string code, int sockfd)
             printed = true;
         }
 
-        if (buf[0] == '0')
-        {
-            break;
-        }
-
         buf[numbytes] = '\0';
 
         string response = string(buf + 1, strlen(buf) - 1);
         cout << response << endl;
-        cnt--;
     }
 }
 
