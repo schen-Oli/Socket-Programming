@@ -15,8 +15,5 @@ serverEE:
 serverM:
 	g++ -o serverM serverM.cpp
 
-t:
-	g++ -o test test.cpp
-
 clean:
-	rm -f client serverC serverCS serverEE serverM test
+	rm -f client serverC serverCS serverEE serverM
