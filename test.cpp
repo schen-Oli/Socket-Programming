@@ -14,24 +14,42 @@
 #include <sstream>
 #include <map>
 #include <iostream>
-
+#include <set>
 #include <stdio.h>
 #include <ctype.h>
-
-#include "client.h"
 
 #define MAXDATASIZE 100
 using namespace std;
 
 void trim()
 {
-    string password = "abbbb";
-    while (password[password.length() - 1] == 'b')
-    {
-        password.erase(password.length() - 1);
-    }
+    string code = "EE450 CS561 EE456 DS123 EE450";
+    set<string> codes;
 
-    cout << password <<"'" << endl;
+    string tmpCode;
+    int left = 0, right = 0;
+   
+    while (right < code.length())
+    {
+        if (code[right] == ' ')
+        {
+            tmpCode = code.substr(left, right - left);
+            codes.insert(tmpCode);
+            while (right < code.length() && code[right] == ' ')
+            {
+                right++;
+            }
+            left = right;
+        }
+
+        right++;
+    }
+    tmpCode = code.substr(left, right - left);
+    codes.insert(tmpCode);
+
+    for (auto it = codes.begin(); it !=
+                             codes.end(); ++it)
+        cout << "'" << *it << "'" <<endl;
 }
 
 int main()

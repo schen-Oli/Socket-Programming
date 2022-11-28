@@ -19,15 +19,9 @@
 #include <vector>
 
 #define IP "127.0.0.1"
-#define PORT "25682" // port number of serverM
+#define PORT_SERVER_M "25682" // port number of serverM
 #define MAXDATASIZE 100
 
-// EE / CS / OTHER
-#define EE '1'
-#define CS '2'
-#define OTHER '3'
-
-// Credit / Professor / Days / CourseName
 #define CREDIT '1'
 #define PROFESSOR '2'
 #define DAYS '3'
@@ -38,11 +32,13 @@ using namespace std;
 
 string username;
 
-// get the port number given socket fd
+// Get the port number given socket fd
 uint16_t getPortNumber(int sockfd)
 {
     struct sockaddr_in sa;
     socklen_t sa_len = sizeof(sa);
+
+    // refer the code in assignment description 
     if (getsockname(sockfd, (struct sockaddr *)&sa, &sa_len) == -1)
     {
         perror("Client:\n getsockname() failed");
@@ -52,7 +48,7 @@ uint16_t getPortNumber(int sockfd)
     return ntohs(sa.sin_port);
 }
 
-// Trim the leading and tailing space of a string
+// Trim the leading and tailing spaces from a string
 string trim(string input)
 {
     int start = 0;
@@ -68,7 +64,7 @@ string trim(string input)
     return input.substr(start, end - start + 1);
 }
 
-// give the category in string format and return it's code
+// Give the category in string format and return its code
 char getCat(string category)
 {
     if (category == "Credit")
@@ -90,20 +86,21 @@ char getCat(string category)
     return '0';
 }
 
+// Get a valid socket fd and connect to serverM
+// Code in this function refers to "Beej's Guide to Network Programming"
 int getSolidSocketFd()
 {
     struct addrinfo hints, *servinfo, *p;
     int sockfd;
-
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
 
     int rv;
-    if ((rv = getaddrinfo(IP, PORT, &hints, &servinfo)) != 0)
+    if ((rv = getaddrinfo(IP, PORT_SERVER_M, &hints, &servinfo)) != 0)
     {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-        return -1;
+        exit(1);
     }
 
     for (p = servinfo; p != NULL; p = p->ai_next)
@@ -126,14 +123,16 @@ int getSolidSocketFd()
 
     if (p == NULL)
     {
-        fprintf(stderr, "client: failed to connect\n");
-        return -1;
+        fprintf(stderr, "Client: failed to connect\n");
+        exit(1);
     }
 
     freeaddrinfo(servinfo);
     return sockfd;
 }
 
+// Ask the user for username and password
+// terminate program if authentication fails 3 times
 void auth(int sockfd)
 {
     int cnt = 3;
@@ -148,13 +147,12 @@ void auth(int sockfd)
         string password;
         cin >> password;
 
-        // Append 1 at the front of request
-        // Demonstrate that client wants to keep connected
+        // add 1 at the front of request, tell SeverM that Client wants to keep connected
         string data = "1" + username + "," + password;
 
         if (send(sockfd, data.c_str(), data.size(), 0) != data.size())
         {
-            perror("send");
+            perror("Authentication - send");
             exit(1);
         }
 
@@ -164,7 +162,7 @@ void auth(int sockfd)
         int numbytes;
         if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) == -1)
         {
-            perror("recv");
+            perror("Authentication - recv");
             exit(1);
         }
 
@@ -190,7 +188,7 @@ void auth(int sockfd)
     // Send 0 to tell the serverM that client wants to end connection
     if (send(sockfd, "0", 1, 0) == -1)
     {
-        perror("Client");
+        perror("Authentication - send");
         exit(1);
     }
 
@@ -199,32 +197,31 @@ void auth(int sockfd)
     exit(1);
 }
 
+// User only request for one course
+// req: requst that will be send to the corresponding server
+// code: the code that user entered
 void requestOneCourse(string req, string code, int sockfd)
 {
     string category;
+    //loop until user enter the correct format of category
     while (getCat(category) == '0')
     {
         if (!category.empty())
         {
-            cout << "Wrong category format." << endl;
+            cout << "Wrong category format, please choose from (Credit / Professor / Days / CourseName)" << endl;
         }
         category.clear();
         cout << "Please enter the category (Credit / Professor / Days / CourseName): ";
         cin >> category;
     }
 
-    string dep;
-    string courseCode;
-
-    int index = 0;
-
     req += code + ",";
     req += getCat(category);
 
-    int numbytes;
-    if (send(sockfd, req.c_str(), req.size(), 0) != req.size())
+    // send the request to serverM
+    if (send(sockfd, req.c_str(), req.size(), 0) == -1)
     {
-        perror("send");
+        perror("requestOneCourse - send");
         exit(1);
     }
 
@@ -232,9 +229,11 @@ void requestOneCourse(string req, string code, int sockfd)
 
     char buf[MAXDATASIZE];
     memset(buf, 0, sizeof buf);
+    int numbytes;
+    // recieve result from ServerM
     if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) == -1)
     {
-        perror("recv");
+        perror("requestOneCourse - recv");
         exit(1);
     }
     else
@@ -255,9 +254,12 @@ void requestOneCourse(string req, string code, int sockfd)
     }
 }
 
+// User wants to request information for multiple courses
+// req: requst that will be send to the corresponding server
+// code: the code that user entered
 void requestMultiCourse(string req, string code, int sockfd)
 {
-    set<string> codeSet;
+    set<string> codeSet; // hashset is used to remove duplicate inputs
     vector<string> codes;
 
     string tmpCode;
@@ -297,17 +299,19 @@ void requestMultiCourse(string req, string code, int sockfd)
 
         int numbytes;
         string reqMessage = req + curr;
+        // send multi course request to serverM
         if (send(sockfd, reqMessage.c_str(), reqMessage.size(), 0) == -1)
         {
-            perror("send");
+            perror("requestMultiCourse - send");
             exit(1);
         }
 
         char buf[MAXDATASIZE];
         memset(buf, 0, sizeof buf);
+        // recieve multi course response from serverM
         if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) == -1)
         {
-            perror("Client:\n recv");
+            perror("requestMultiCourse - recv");
             exit(1);
         }
         else if (!printed)
