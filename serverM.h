@@ -366,7 +366,6 @@ int processOneCourse(char *buf, int new_fd)
     }
     else
     {
-        cout << "char in index " << index << " is " << buf[index];
         perror("wrong request format");
         return -1;
     }
@@ -381,7 +380,6 @@ int processOneCourse(char *buf, int new_fd)
     }
     else
     {
-        cout << "char in index " << index << " is " << buf[index];
         perror("wrong request format");
         return -1;
     }
@@ -392,7 +390,6 @@ int processOneCourse(char *buf, int new_fd)
     }
     else
     {
-        cout << "char in index " << index << " is " << buf[index];
         perror("wrong request format");
         return -1;
     }
@@ -437,7 +434,6 @@ int processMultipleCourses(char *buf, int new_fd)
     }
     else
     {
-        cout << "char in index " << index << " is " << buf[index];
         perror("wrong request format");
         return -1;
     }
@@ -452,7 +448,6 @@ int processMultipleCourses(char *buf, int new_fd)
     }
     else
     {
-        cout << "char in index " << index << " is " << buf[index];
         perror("wrong request format");
         return -1;
     }
