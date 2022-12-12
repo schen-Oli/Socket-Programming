@@ -16,21 +16,18 @@
 #include <iostream>
 #include <vector>
 
-#define IP "127.0.0.1"
-#define PORT_C "21682"
-#define PORT_CS "22682"
-#define PORT_EE "23682"
-#define PORT_M "25682"
-#define PORT_M_UDP "24682"
+#include "port.h"
 
-#define MAXDATASIZE 100
+#define IP "127.0.0.1"
+
+#define MAXDATASIZE 200
 #define SHIFT_ENCRYP 4
 
 #define CREDIT '1'
 #define PROFESSOR '2'
 #define DAYS '3'
 #define COURSE_NAME '4'
-#define FULL '5'
+#define ALL '5'
 
 using namespace std;
 

@@ -15,15 +15,16 @@
 #include <map>
 #include <iostream>
 
-#define IP "127.0.0.1"
-#define PORT "22682"
-#define MAXBUFLEN 100
+#include "port.h"
 
+#define MAXBUFLEN 200
 #define CREDIT "1"
 #define PROFESSOR "2"
 #define DAYS "3"
 #define COURSE_NAME "4"
 #define ALL "5"
+
+#define IP "127.0.0.1"
 
 using namespace std;
 
@@ -36,18 +37,23 @@ struct Course
     string name;
 };
 
-int sockfd = -1;
 map<string, Course> db;
+int sockfd = -1;
+string serverName;
 
-// Read CS courses to a hashmap given file name
-void readFile()
+void setServerName(string name){
+    serverName = name;
+}
+
+// Read courses from a txt file to a hashmap
+void readFile(string filename)
 {
     ifstream file;
-    file.open("cs.txt", ios::in);
+    file.open(filename, ios::in);
 
     if (!file.is_open())
     {
-        perror("ServerCS:\n Failed to open CS course file");
+        printf("Failed to open file %s.\n", filename.c_str());
         exit(-1);
     }
 
@@ -62,17 +68,18 @@ void readFile()
         getline(ss, days, ',');
         getline(ss, name, ',');
         // remove tailing '\r' and '\n'
-        while(name[name.length() - 1] == '\r' || name[name.length() - 1] == '\n'){
+        while (name[name.length() - 1] == '\r' || name[name.length() - 1] == '\n')
+        {
             name.erase(name.length() - 1);
         }
         Course course = {code, credit, professor, days, name};
-        db[code] = course;
+        db.insert(make_pair(code, course));
     }
 }
 
-// Find a valid socket fd and bind it to the port 22682
+// Find a valid socket fd and bind it to relative port
 // Refer to "Beej's Guide to Network Programming"
-void creatUDPConnection()
+void creatUDPConnection(const char *portNumber)
 {
     struct addrinfo hints;
     int rv;
@@ -82,26 +89,25 @@ void creatUDPConnection()
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_DGRAM;
 
-    if ((rv = getaddrinfo(IP, PORT, &hints, &servinfo)) != 0)
+    if ((rv = getaddrinfo(IP, portNumber, &hints, &servinfo)) != 0)
     {
-        fprintf(stderr, "ServerCS:\n getaddrinfo: %s\n", gai_strerror(rv));
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
         return;
     }
 
-    // loop through all the results and bind to the first we can
     for (p = servinfo; p != NULL; p = p->ai_next)
     {
-        if ((sockfd = socket(p->ai_family, p->ai_socktype,
-                             p->ai_protocol)) == -1)
+        sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+        if ((sockfd) == -1)
         {
-            perror("ServerCS:\n socket");
+            perror("socket");
             continue;
         }
 
         if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
         {
             close(sockfd);
-            perror("ServerCS:\n bind");
+            perror("bind");
             continue;
         }
 
@@ -110,12 +116,11 @@ void creatUDPConnection()
 
     if (p == NULL)
     {
-        fprintf(stderr, "serverCS: failed to bind socket\n");
+        fprintf(stderr, "Failed to bind socket\n");
         return;
     }
 
     freeaddrinfo(servinfo);
-    cout << "The ServerCS is up and running using UDP on port " << PORT << "." << endl;
 }
 
 // return all information of a course as a string
@@ -163,17 +168,21 @@ void checkMessage()
     string code;
     string cat;
     getline(ss, code, ',');
-    if(ss.peek() == EOF){
-        cout << "checkMessage - incorrect input format." << endl;
-        cout << "Expected input format: Coursecode,RequestType (eg. CS450,3)" << endl;
+    if (ss.peek() == EOF)
+    {
+        cout << "Incorrect input format." << endl;
+        cout << "Expected input format: Coursecode,RequestType (eg. EE450,3)" << endl;
         return;
     }
     getline(ss, cat);
 
-    if(cat != ALL){
-        printf("The serverCS received a request from the Main Server about the %s of %s.\n", getStringFromCategory(cat).c_str(), code.c_str());
-    }else{
-        printf("The serverCS received a request from the Main Server about %s.\n", code.c_str());
+    if (cat != ALL)
+    {
+        printf("The %s received a request from the Main Server about the %s of %s.\n", serverName.c_str(), getStringFromCategory(cat).c_str(), code.c_str());
+    }
+    else
+    {
+        printf("The %s received a request from the Main Server about %s.\n", serverName.c_str(), code.c_str());
     }
 
     string res;
@@ -209,15 +218,16 @@ void checkMessage()
         }
 
         res += information;
-        if(cat != ALL){
+        if (cat != ALL)
+        {
             printf("The course information has been found: The %s of %s is %s.\n", getStringFromCategory(cat).c_str(), code.c_str(), information.c_str());
         }
     }
 
     if ((numbytes = sendto(sockfd, res.c_str(), res.length(), 0, (struct sockaddr *)&their_addr, addr_len)) == -1)
     {
-        perror("ServerCS:\n sendto");
+        perror("sendto");
         return;
     }
-    cout << "The ServerCS finished sending the response to the Main Server." << endl;
+    printf("The %s finished sending the response to the Main Server.\n", serverName.c_str());
 }
